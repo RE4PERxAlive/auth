@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 PORT = 8080
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uuids.json')
+HTML_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'index.html')
 
 DEFAULT_OWNER_ID = "e4b3c2a1-8765-4321-90ab-cdef12345678"
 DEFAULT_SECRET_KEY = "bloody_sec_9f8e7d6c5b4a39281706f5e4d3c2b1a"
@@ -33,8 +34,26 @@ def load_db():
         return []
 
 def save_db(data):
+    # 1. Save to uuids.json
     with open(DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
+
+    # 2. Auto-save directly into index.html itself!
+    try:
+        if os.path.exists(HTML_FILE):
+            with open(HTML_FILE, 'r', encoding='utf-8') as f:
+                content = f.read()
+            start_tag = '/* [BLOODY_DB_START] */'
+            end_tag = '/* [BLOODY_DB_END] */'
+            if start_tag in content and end_tag in content:
+                before = content.split(start_tag)[0]
+                after = content.split(end_tag)[1]
+                db_code = f"\n        let EMBEDDED_UUIDS = {json.dumps(data, indent=8)};\n        "
+                new_content = before + start_tag + db_code + end_tag + after
+                with open(HTML_FILE, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+    except Exception as e:
+        print(f"[-] Error auto-saving to index.html: {e}")
 
 class AuthHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -209,6 +228,11 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
                 elif action == 'delete':
                     target = (payload.get('system_uuid') or payload.get('uuid') or '').strip().upper()
                     db = [item for item in db if (item.get('system_uuid') or item.get('uuid') or '').strip().upper() != target]
+
+                elif action == 'save_all' or action == 'sync':
+                    keys_list = payload.get('keys', [])
+                    if isinstance(keys_list, list):
+                        db = keys_list
 
                 save_db(db)
                 self.send_response(200)

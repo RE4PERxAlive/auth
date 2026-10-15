@@ -274,6 +274,57 @@
             border-color: rgba(255, 255, 255, 0.2);
         }
 
+        .btn-save {
+            background: linear-gradient(135deg, #00c853, #009624);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 200, 83, 0.35);
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 83, 0.55);
+        }
+
+        .btn-save.unsaved {
+            background: linear-gradient(135deg, #ff9100, #ff6d00);
+            box-shadow: 0 4px 15px rgba(255, 145, 0, 0.4);
+            animation: pulse-save-glow 2s infinite;
+        }
+
+        @keyframes pulse-save-glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 145, 0, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(255, 145, 0, 0.8); }
+        }
+
+        .save-indicator-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+
+        .save-indicator-badge.saved {
+            background: rgba(0, 230, 118, 0.12);
+            border: 1px solid rgba(0, 230, 118, 0.3);
+            color: var(--success);
+        }
+
+        .save-indicator-badge.unsaved {
+            background: rgba(255, 171, 0, 0.15);
+            border: 1px solid rgba(255, 171, 0, 0.4);
+            color: var(--warning);
+        }
+
+        .save-indicator-badge.syncing {
+            background: rgba(33, 150, 243, 0.15);
+            border: 1px solid rgba(33, 150, 243, 0.4);
+            color: #64b5f6;
+        }
+
         .admin-credentials-badge {
             margin-top: 20px;
             padding: 12px;
@@ -866,14 +917,31 @@
 
                 <!-- TAB 1: ALL KEYS & USER MANAGEMENT -->
                 <div id="all-keys-tab" class="tab-content active">
-                    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 14px;">
                         <div>
-                            <h2 class="page-title">All Registered System UUIDs & Users</h2>
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap;">
+                                <h2 class="page-title" style="margin-bottom: 0;">All Registered System UUIDs &amp; Users</h2>
+                                <span id="save-status-badge" class="save-indicator-badge saved">
+                                    <i class="fa-solid fa-circle-check"></i> Auto-Save Active
+                                </span>
+                            </div>
                             <p class="page-desc">Full Admin Control Panel to view, issue, lock, and revoke machine authorization UUIDs.</p>
                         </div>
-                        <button class="btn btn-primary" onclick="openRegisterUuidModal()" style="width: auto; padding: 10px 20px;">
-                            <i class="fa-solid fa-plus"></i> Register New System UUID
-                        </button>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <button class="btn btn-save" id="btn-save-db" onclick="autoSave(true)" style="width: auto; padding: 10px 18px;" title="Auto-save runs continuously; click to force immediate sync">
+                                <i class="fa-solid fa-floppy-disk"></i> Force Save
+                            </button>
+                            <button class="btn btn-secondary" onclick="exportDatabaseFile()" style="width: auto; padding: 10px 14px;" title="Download uuids.json backup to your computer">
+                                <i class="fa-solid fa-download"></i> Backup JSON
+                            </button>
+                            <label class="btn btn-secondary" style="width: auto; padding: 10px 14px; cursor: pointer; margin: 0;" title="Restore or import users from uuids.json">
+                                <i class="fa-solid fa-upload"></i> Restore JSON
+                                <input type="file" id="import-json-input" accept=".json" style="display:none;" onchange="importDatabaseFile(event)">
+                            </label>
+                            <button class="btn btn-primary" onclick="openRegisterUuidModal()" style="width: auto; padding: 10px 20px;">
+                                <i class="fa-solid fa-plus"></i> Register New System UUID
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Stats Cards -->
@@ -1164,6 +1232,12 @@ class Program
         // Data State
         let currentOption = 'admin'; // 'admin' or 'user'
         let isAdminLoggedIn = false;
+        
+        // EMBEDDED DATABASE (Auto-Saved Directly Into HTML)
+        /* [BLOODY_DB_START] */
+        let EMBEDDED_UUIDS = [];
+        /* [BLOODY_DB_END] */
+
         let registeredUuids = [];
         let masterOwnerId = 'e4b3c2a1-8765-4321-90ab-cdef12345678';
         let masterSecretKey = 'bloody_sec_9f8e7d6c5b4a39281706f5e4d3c2b1a';
@@ -1175,33 +1249,209 @@ class Program
             fetchMyDetectedUuid();
         });
 
+        function getApiBaseUrl() {
+            if (window.location.protocol === 'file:') {
+                return 'http://localhost:8080';
+            }
+            return '';
+        }
+
+        function setSaveStatus(state, label) {
+            const badge = document.getElementById('save-status-badge');
+            const saveBtn = document.getElementById('btn-save-db');
+            if (!badge) return;
+
+            badge.className = `save-indicator-badge ${state}`;
+            let icon = 'fa-circle-check';
+            if (state === 'unsaved') icon = 'fa-triangle-exclamation';
+            if (state === 'syncing') icon = 'fa-spinner fa-spin';
+
+            badge.innerHTML = `<i class="fa-solid ${icon}"></i> ${label}`;
+
+            if (saveBtn) {
+                if (state === 'unsaved') {
+                    saveBtn.classList.add('unsaved');
+                } else {
+                    saveBtn.classList.remove('unsaved');
+                }
+            }
+        }
+
         async function initSystemData() {
+            setSaveStatus('syncing', 'Auto-Syncing...');
+
+            // 1. Load users embedded directly inside this HTML file
+            let embeddedList = [];
+            if (typeof EMBEDDED_UUIDS !== 'undefined' && Array.isArray(EMBEDDED_UUIDS)) {
+                embeddedList = EMBEDDED_UUIDS;
+            }
+
+            // 2. Load users from localStorage
+            let localList = [];
             try {
-                const res = await fetch('/api/keys');
-                if (res.ok) {
-                    registeredUuids = await res.json();
-                    renderUuidsTable();
-                    return;
+                const saved = localStorage.getItem('bloody_registered_uuids');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) localList = parsed;
                 }
             } catch(e) {}
 
-            const saved = localStorage.getItem('bloody_registered_uuids');
-            registeredUuids = saved ? JSON.parse(saved) : [];
+            // Remove legacy sample user
+            embeddedList = embeddedList.filter(item => !(item.user === 're4per' && (item.system_uuid === '4C4C4544-0059-3510-804D-B6C04F5A4833' || item.uuid === '4C4C4544-0059-3510-804D-B6C04F5A4833')));
+            localList = localList.filter(item => !(item.user === 're4per' && (item.system_uuid === '4C4C4544-0059-3510-804D-B6C04F5A4833' || item.uuid === '4C4C4544-0059-3510-804D-B6C04F5A4833')));
+
+            // 3. Load from Server if available
+            let serverList = [];
+            let serverOnline = false;
+            try {
+                const res = await fetch(getApiBaseUrl() + '/api/keys', { cache: 'no-store' });
+                if (res.ok) {
+                    serverList = await res.json();
+                    serverOnline = true;
+                }
+            } catch(e) {}
+
+            if (Array.isArray(serverList)) {
+                serverList = serverList.filter(item => !(item.user === 're4per' && (item.system_uuid === '4C4C4544-0059-3510-804D-B6C04F5A4833' || item.uuid === '4C4C4544-0059-3510-804D-B6C04F5A4833')));
+            }
+
+            // Intelligent merge across Embedded HTML + LocalStorage + Server
+            const mergedMap = new Map();
+
+            // First add server records if online
+            if (Array.isArray(serverList)) {
+                serverList.forEach(item => {
+                    const id = (item.system_uuid || item.uuid || '').toUpperCase();
+                    if (id) mergedMap.set(id, item);
+                });
+            }
+
+            // Next merge embedded HTML records
+            if (Array.isArray(embeddedList)) {
+                embeddedList.forEach(item => {
+                    const id = (item.system_uuid || item.uuid || '').toUpperCase();
+                    if (id && !mergedMap.has(id)) mergedMap.set(id, item);
+                });
+            }
+
+            // Next merge localStorage records
+            let hasNewLocalEntries = false;
+            if (Array.isArray(localList)) {
+                localList.forEach(item => {
+                    const id = (item.system_uuid || item.uuid || '').toUpperCase();
+                    if (id && !mergedMap.has(id)) {
+                        mergedMap.set(id, item);
+                        hasNewLocalEntries = true;
+                    }
+                });
+            }
+
+            registeredUuids = Array.from(mergedMap.values());
+            saveSystemData();
+
+            if (serverOnline) {
+                if (hasNewLocalEntries || embeddedList.length > 0) {
+                    await syncAction('save_all', { keys: registeredUuids });
+                }
+                setSaveStatus('saved', 'Auto-Saved in HTML & Server');
+            } else {
+                setSaveStatus('saved', 'Auto-Saved in HTML & Browser');
+            }
+
             renderUuidsTable();
         }
 
         async function syncAction(action, payload) {
             try {
-                await fetch('/api/keys', {
+                const res = await fetch(getApiBaseUrl() + '/api/keys', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action, ...payload })
                 });
-            } catch(e) {}
+                return res.ok;
+            } catch(e) {
+                return false;
+            }
         }
 
         function saveSystemData() {
             localStorage.setItem('bloody_registered_uuids', JSON.stringify(registeredUuids));
+        }
+
+        // AUTO-SAVE ENGINE: Automatically persists state on every action and on page exit
+        async function autoSave(showNotification = false) {
+            saveSystemData();
+            setSaveStatus('syncing', 'Auto-Saving...');
+
+            try {
+                const res = await fetch(getApiBaseUrl() + '/api/keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'save_all', keys: registeredUuids }),
+                    keepalive: true
+                });
+
+                if (res.ok) {
+                    setSaveStatus('saved', 'Auto-Saved in HTML & Database');
+                    if (showNotification) showToast('Auto-saved into HTML & uuids.json!', 'success');
+                    return true;
+                } else {
+                    throw new Error('Server status ' + res.status);
+                }
+            } catch(e) {
+                setSaveStatus('saved', 'Auto-Saved in HTML & Browser');
+                if (showNotification) showToast('Auto-saved in browser storage! Run server to auto-update HTML file on disk.', 'info');
+                return false;
+            }
+        }
+
+        // Flush auto-save whenever leaving or closing the website
+        window.addEventListener('beforeunload', () => {
+            saveSystemData();
+            try {
+                const blob = new Blob([JSON.stringify({ action: 'save_all', keys: registeredUuids })], { type: 'application/json' });
+                navigator.sendBeacon(getApiBaseUrl() + '/api/keys', blob);
+            } catch(e) {}
+        });
+
+        window.addEventListener('pagehide', () => {
+            saveSystemData();
+        });
+
+        function exportDatabaseFile() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(registeredUuids, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "uuids.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('Downloaded uuids.json database file!', 'success');
+        }
+
+        function importDatabaseFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (Array.isArray(parsed)) {
+                        registeredUuids = parsed;
+                        saveSystemData();
+                        renderUuidsTable();
+                        await saveAllChangesToServer();
+                        showToast(`Restored & saved ${parsed.length} users successfully!`, 'success');
+                    } else {
+                        showToast('Invalid JSON file format (must be a JSON array)', 'error');
+                    }
+                } catch(err) {
+                    showToast('Failed to parse JSON file', 'error');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
         }
 
         // OPTION TOGGLE (Admin Portal vs System UUID Check)
@@ -1280,7 +1530,7 @@ class Program
             resultBox.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Checking system authorization...</div>';
 
             try {
-                const res = await fetch(`/verify?owner_id=${masterOwnerId}&secret_key=${masterSecretKey}&system_uuid=${encodeURIComponent(inputUuid)}`);
+                const res = await fetch(getApiBaseUrl() + `/verify?owner_id=${masterOwnerId}&secret_key=${masterSecretKey}&system_uuid=${encodeURIComponent(inputUuid)}`);
                 const data = await res.json();
 
                 if (data.status === 1) {
@@ -1336,48 +1586,60 @@ class Program
             let activeCount = 0;
             let revokedCount = 0;
 
-            registeredUuids.forEach((item, idx) => {
-                if (item.status === 'Active') activeCount++;
-                else revokedCount++;
-
-                const sysUuid = item.system_uuid || item.uuid || 'UNKNOWN';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="key-value" style="font-size:13px; letter-spacing:0.5px;">${sysUuid}</span>
-                            <button class="icon-btn" onclick="copyText('${sysUuid}', 'System UUID')" style="width:26px; height:26px; font-size:11px;">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </div>
-                    </td>
-                    <td style="font-weight:600;">${item.user || 'Client'}</td>
-                    <td>
-                        <span class="status-pill ${(item.status || 'Active').toLowerCase()}">
-                            <i class="fa-solid fa-circle" style="font-size:8px;"></i> ${item.status || 'Active'}
-                        </span>
-                    </td>
-                    <td>
-                        <div style="font-size:12px; color:var(--text-main); font-weight:500;">
-                            <i class="fa-solid fa-clock" style="color:var(--accent); margin-right:4px;"></i>
-                            ${item.expiresFormatted || (item.durationDays ? item.durationDays + ' Days' : 'Lifetime')}
-                        </div>
-                    </td>
-                    <td>${item.createdAt || 'N/A'}</td>
-                    <td>
-                        <div style="display:flex; gap:6px;">
-                            <button class="icon-btn" onclick="toggleUuidStatus(${idx})" title="Toggle Access (Active/Revoke)" style="width:30px; height:30px;">
-                                <i class="fa-solid ${item.status === 'Active' ? 'fa-ban' : 'fa-check'}" style="color:${item.status === 'Active' ? 'var(--danger)' : 'var(--success)'}"></i>
-                            </button>
-                            <button class="icon-btn" onclick="deleteUuid(${idx})" title="Remove / Delete User Key" style="width:30px; height:30px; border-color: rgba(255,23,68,0.3);">
-                                <i class="fa-solid fa-trash-can" style="color:var(--danger);"></i>
-                            </button>
-                        </div>
-                    </td>
+            if (registeredUuids.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 45px 20px; color: var(--text-muted);">
+                            <i class="fa-solid fa-folder-open" style="font-size: 38px; margin-bottom: 12px; opacity: 0.35; color: var(--text-dim); display: block;"></i>
+                            <div style="font-size: 15px; font-weight: 600; color: var(--text-main);">No Authorized Systems Registered</div>
+                            <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Click "Register New System UUID" above to authorize a machine.</div>
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
-            });
+            } else {
+                registeredUuids.forEach((item, idx) => {
+                    if (item.status === 'Active') activeCount++;
+                    else revokedCount++;
+
+                    const sysUuid = item.system_uuid || item.uuid || 'UNKNOWN';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="key-value" style="font-size:13px; letter-spacing:0.5px;">${sysUuid}</span>
+                                <button class="icon-btn" onclick="copyText('${sysUuid}', 'System UUID')" style="width:26px; height:26px; font-size:11px;">
+                                    <i class="fa-solid fa-copy"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td style="font-weight:600;">${item.user || 'Client'}</td>
+                        <td>
+                            <span class="status-pill ${(item.status || 'Active').toLowerCase()}">
+                                <i class="fa-solid fa-circle" style="font-size:8px;"></i> ${item.status || 'Active'}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="font-size:12px; color:var(--text-main); font-weight:500;">
+                                <i class="fa-solid fa-clock" style="color:var(--accent); margin-right:4px;"></i>
+                                ${item.expiresFormatted || (item.durationDays ? item.durationDays + ' Days' : 'Lifetime')}
+                            </div>
+                        </td>
+                        <td>${item.createdAt || 'N/A'}</td>
+                        <td>
+                            <div style="display:flex; gap:6px;">
+                                <button class="icon-btn" onclick="toggleUuidStatus(${idx})" title="Toggle Access (Active/Revoke)" style="width:30px; height:30px;">
+                                    <i class="fa-solid ${item.status === 'Active' ? 'fa-ban' : 'fa-check'}" style="color:${item.status === 'Active' ? 'var(--danger)' : 'var(--success)'}"></i>
+                                </button>
+                                <button class="icon-btn" onclick="deleteUuid(${idx})" title="Remove / Delete User Key" style="width:30px; height:30px; border-color: rgba(255,23,68,0.3);">
+                                    <i class="fa-solid fa-trash-can" style="color:var(--danger);"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
 
             document.getElementById('stat-total-uuids').innerText = registeredUuids.length;
             document.getElementById('stat-authorized-uuids').innerText = activeCount;
@@ -1386,26 +1648,23 @@ class Program
             updateSimOptions();
         }
 
-        function toggleUuidStatus(idx) {
+        async function toggleUuidStatus(idx) {
             const item = registeredUuids[idx];
             item.status = item.status === 'Active' ? 'Revoked' : 'Active';
-            saveSystemData();
-            const target = item.system_uuid || item.uuid;
-            syncAction('toggle', { system_uuid: target, uuid: target });
             renderUuidsTable();
             showToast(`UUID status updated to ${item.status}`, 'info');
+            await autoSave();
         }
 
-        function deleteUuid(idx) {
+        async function deleteUuid(idx) {
             const item = registeredUuids[idx];
             const target = item.system_uuid || item.uuid;
             if (!confirm(`Permanently remove authorization for "${item.user}" (${target})?`)) return;
 
             registeredUuids.splice(idx, 1);
-            saveSystemData();
-            syncAction('delete', { system_uuid: target, uuid: target });
             renderUuidsTable();
             showToast(`System UUID ${target} removed!`, 'success');
+            await autoSave();
         }
 
         // MODAL ADD NEW SYSTEM UUID
@@ -1421,7 +1680,7 @@ class Program
 
         async function fetchMyDetectedUuid() {
             try {
-                const res = await fetch('/api/my_uuid');
+                const res = await fetch(getApiBaseUrl() + '/api/my_uuid');
                 if (res.ok) {
                     const data = await res.json();
                     if (data.system_uuid && data.system_uuid !== 'UNKNOWN') {
@@ -1449,7 +1708,7 @@ class Program
             document.getElementById('modal-app-name').value = 'My_Primary_PC';
         }
 
-        function handleRegisterUuidSubmit(event) {
+        async function handleRegisterUuidSubmit(event) {
             event.preventDefault();
             const sysUuid = document.getElementById('modal-system-uuid').value.trim().toUpperCase();
             const appName = document.getElementById('modal-app-name').value.trim() || 'Client';
@@ -1486,13 +1745,18 @@ class Program
                 registeredUuids.unshift(newObj);
             }
 
-            saveSystemData();
-            syncAction('add', { ...newObj, days: durationDays });
             renderUuidsTable();
             closeRegisterUuidModal();
-            showToast(`Authorized System UUID for ${appName}!`, 'success');
             document.getElementById('modal-system-uuid').value = '';
             document.getElementById('modal-app-name').value = '';
+
+            // Auto-save immediately to uuids.json and browser storage
+            const savedOk = await autoSave();
+            if (savedOk) {
+                showToast(`Authorized & Auto-Saved ${appName}!`, 'success');
+            } else {
+                showToast(`Authorized & Saved ${appName} in browser!`, 'info');
+            }
         }
 
         // MASTER SECRET VISIBILITY
@@ -1530,6 +1794,10 @@ class Program
         function updateSimOptions() {
             const select = document.getElementById('sim-registered-uuid');
             if (!select) return;
+            if (registeredUuids.length === 0) {
+                select.innerHTML = '<option value="">-- No registered users yet --</option>';
+                return;
+            }
             select.innerHTML = '<option value="">-- Choose an authorized system --</option>';
             registeredUuids.forEach(item => {
                 const opt = document.createElement('option');
@@ -1564,7 +1832,7 @@ class Program
             outputBox.innerHTML = '<div style="color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:24px; margin-bottom:8px;"></i><br>Contacting Auth Server...</div>';
 
             try {
-                const res = await fetch(`/verify?owner_id=${masterOwnerId}&secret_key=${masterSecretKey}&system_uuid=${encodeURIComponent(testUuid)}`);
+                const res = await fetch(getApiBaseUrl() + `/verify?owner_id=${masterOwnerId}&secret_key=${masterSecretKey}&system_uuid=${encodeURIComponent(testUuid)}`);
                 const data = await res.json();
 
                 if (data.status === 1) {

@@ -11,12 +11,12 @@ namespace SimpleAuth
     // =========================================================================
     // CONFIGURATION - Bloody Auth Server Credentials
     // =========================================================================
-    inline const char* API_HOST   = "127.0.0.1";
-    inline const INTERNET_PORT API_PORT = 8080;
-    inline const char* API_PATH   = "/verify";
+    static const char* API_HOST = "bloodauth.onrender.com";
+    static const INTERNET_PORT API_PORT = INTERNET_DEFAULT_HTTPS_PORT;
+    static const char* API_PATH = "/verify";
 
-    inline const char* OWNER_ID   = "e4b3c2a1-8765-4321-90ab-cdef12345678";
-    inline const char* SECRET_KEY = "bloody_sec_9f8e7d6c5b4a39281706f5e4d3c2b1a";
+    static const char* OWNER_ID = "e4b3c2a1-8765-4321-90ab-cdef12345678";
+    static const char* SECRET_KEY = "bloody_sec_9f8e7d6c5b4a39281706f5e4d3c2b1a";
 
     // =========================================================================
     // HARDWARE SYSTEM UUID EXTRACTION (Native SMBIOS Firmware Table)
@@ -84,69 +84,141 @@ namespace SimpleAuth
 
     // =========================================================================
     // MAIN VERIFICATION CALL
-    // Usage in main(): if (!SimpleAuth::Verify()) return 0;
-    // Checks if the client's System UUID is registered & active on the website!
+    // Returns true if authorized, false if not.
+    // On failure: shows "authorization failed" MessageBox matching C# behavior.
     // =========================================================================
     inline bool Verify()
     {
         bool authorized = false;
-        std::string reason = "Cannot connect to Auth Server (is server running?)";
-        std::string systemUuid = GetSystemUUID();
+        std::string reason = "Cannot connect to Auth Server";
+        std::string systemUuid = "UNKNOWN";
 
-        HINTERNET hInternet = InternetOpenA("BloodyAuthClient/3.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-        if (hInternet)
+        // Wrap everything - DLL context must never throw or crash
+        __try
         {
-            HINTERNET hConnect = InternetConnectA(hInternet, API_HOST, API_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-            if (hConnect)
+            systemUuid = GetSystemUUID();
+
+            HINTERNET hInternet = InternetOpenA("BloodyAuthClient/3.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+            if (hInternet)
             {
-                std::string fullPath = std::string(API_PATH) +
-                    "?owner_id=" + OWNER_ID +
-                    "&secret_key=" + SECRET_KEY +
-                    "&system_uuid=" + systemUuid;
-
-                HINTERNET hRequest = HttpOpenRequestA(hConnect, "GET", fullPath.c_str(), NULL, NULL, NULL,
-                    INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_PRAGMA_NOCACHE, 0);
-
-                if (hRequest)
+                HINTERNET hConnect = InternetConnectA(
+                    hInternet,
+                    API_HOST,
+                    API_PORT,
+                    NULL,
+                    NULL,
+                    INTERNET_SERVICE_HTTP,
+                    0,
+                    0
+                );
+                if (hConnect)
                 {
-                    if (HttpSendRequestA(hRequest, NULL, 0, NULL, 0))
-                    {
-                        char buffer[2048] = { 0 };
-                        DWORD bytesRead = 0;
-                        if (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0)
-                        {
-                            std::string response(buffer, bytesRead);
+                    std::string fullPath = std::string(API_PATH) +
+                        "?owner_id=" + OWNER_ID +
+                        "&secret_key=" + SECRET_KEY +
+                        "&system_uuid=" + systemUuid;
 
-                            if (response.find("\"status\":1") != std::string::npos ||
-                                response.find("\"status\": 1") != std::string::npos)
+                    HINTERNET hRequest = HttpOpenRequestA(
+                        hConnect,
+                        "GET",
+                        fullPath.c_str(),
+                        NULL,
+                        NULL,
+                        NULL,
+                        INTERNET_FLAG_SECURE | INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_PRAGMA_NOCACHE,
+                        0
+                    );
+
+                    if (hRequest)
+                    {
+                        if (HttpSendRequestA(hRequest, NULL, 0, NULL, 0))
+                        {
+                            char buffer[4096] = { 0 };
+                            DWORD bytesRead = 0;
+                            if (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0)
                             {
-                                authorized = true;
-                            }
-                            else
-                            {
-                                std::string serverMsg = ExtractJsonField(response, "message");
-                                reason = serverMsg.empty() ? "System UUID is not authorized" : serverMsg;
+                                std::string response(buffer, bytesRead);
+
+                                if (response.find("\"status\":1") != std::string::npos ||
+                                    response.find("\"status\": 1") != std::string::npos)
+                                {
+                                    authorized = true;
+                                }
+                                else
+                                {
+                                    std::string serverMsg = ExtractJsonField(response, "message");
+                                    reason = serverMsg.empty() ? "System UUID is not authorized" : serverMsg;
+                                }
                             }
                         }
+                        else
+                        {
+                            DWORD err = GetLastError();
+                            reason = "HttpSendRequest failed (Error " + std::to_string(err) + ")";
+                        }
+                        InternetCloseHandle(hRequest);
                     }
-                    else
-                    {
-                        DWORD err = GetLastError();
-                        reason = "HttpSendRequest failed (Error " + std::to_string(err) + ")";
-                    }
-                    InternetCloseHandle(hRequest);
+                    InternetCloseHandle(hConnect);
                 }
-                InternetCloseHandle(hConnect);
+                InternetCloseHandle(hInternet);
             }
-            InternetCloseHandle(hInternet);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            reason = "Internal error during verification";
         }
 
         if (!authorized)
         {
-            std::string alertText = "authorization failed\n\nSystem UUID: " + systemUuid + "\nReason: " + reason;
-            MessageBoxA(NULL, alertText.c_str(), "Bloody Auth Guard", MB_OK | MB_ICONERROR);
+            // Match C# behavior: simple "authorization failed" dialog, then return false
+            std::string msg = "authorization failed " + systemUuid + "\nReason: " + reason;
+            MessageBoxA(NULL, msg.c_str(), "Bloody Auth System", MB_OK | MB_ICONERROR);
         }
 
         return authorized;
+    }
+
+    // =========================================================================
+    // DLL-SAFE WORKER THREAD
+    // Runs Verify() off the loader thread (avoids loader lock / deadlock).
+    // On failure: shows MessageBox like C# version, then calls ExitProcess.
+    // =========================================================================
+    inline DWORD WINAPI _AuthThread(LPVOID)
+    {
+        if (!Verify())
+        {
+            // Cleanly terminate host process after dialog dismissed - same as C# Environment.Exit(0)
+            ExitProcess(0);
+        }
+        return 0;
+    }
+
+    // =========================================================================
+    // ONE-LINER ENTRY POINTS
+    // =========================================================================
+
+    // For EXE: main() / WinMain() - blocks until verified, exits on failure
+    // Usage: SimpleAuth::Protect();
+    inline void Protect()
+    {
+        if (!Verify())
+            ExitProcess(0);
+    }
+
+    // For DLL: DllMain() DLL_PROCESS_ATTACH - runs off-thread (no loader lock)
+    // Usage: SimpleAuth::ProtectDLL(hModule);
+    inline void ProtectDLL(HMODULE hModule = NULL)
+    {
+        HANDLE hThread = CreateThread(NULL, 0, _AuthThread, NULL, 0, NULL);
+        if (hThread)
+        {
+            CloseHandle(hThread);
+        }
+        else
+        {
+            // Thread creation failed, verify inline as fallback
+            if (!Verify())
+                ExitProcess(0);
+        }
     }
 }
