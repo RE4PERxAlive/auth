@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cloudflare Pages ready System UUID Authorization & License Management Dashboard">
+    <title>AzureGuard Auth - System UUID License Platform</title>
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-base: #04060d;
+            --bg-surface: #0a1120;
+            --bg-card: rgba(13, 22, 40, 0.72);
+            --bg-card-border: rgba(59, 130, 246, 0.28);
+
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.45);
+            --primary-dark: #1d4ed8;
+            --accent: #60a5fa;
+
+            --text-main: #ffffff;
+            --text-muted: #9db2d0;
+            --text-dim: #5c6f8f;
+
+            --success: #22d3ee;
+            --warning: #fbbf24;
+            --danger: #f87171;
+
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --radius-sm: 6px;
+
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(circle at 12% 12%, rgba(59, 130, 246, 0.10) 0%, transparent 45%),
+                radial-gradient(circle at 88% 85%, rgba(29, 78, 216, 0.10) 0%, transparent 45%);
+            background-attachment: fixed;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.35); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+        .glass-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--bg-card-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+        }
+
+        /* ============ AUTH SELECTION & LOGIN ============ */
+        #auth-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; position: relative; z-index: 10; }
+
+        .auth-card { width: 100%; max-width: 460px; border-radius: var(--radius-lg); padding: 40px 32px; position: relative; overflow: hidden; }
+
+        .auth-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary), #fff, var(--primary), transparent);
+        }
+
+        .brand-header { text-align: center; margin-bottom: 28px; }
+
+        .brand-logo {
+            width: 60px; height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 16px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 28px; color: #fff;
+            box-shadow: 0 0 25px var(--primary-glow);
+            margin-bottom: 12px;
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+            100% { box-shadow: 0 0 34px rgba(59, 130, 246, 0.85); }
+        }
+
+        .brand-title {
+            font-size: 28px; font-weight: 800; letter-spacing: 0.5px;
+            background: linear-gradient(180deg, #ffffff 0%, #9db2d0 100%);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .brand-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+        /* 2 OPTION TOGGLE */
+        .option-toggle-container {
+            display: flex; background: rgba(5, 9, 18, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: var(--radius-md); padding: 4px; margin-bottom: 24px;
+        }
+
+        .option-btn {
+            flex: 1; padding: 10px; border: none; background: transparent;
+            color: var(--text-muted); font-weight: 600; font-size: 13px;
+            border-radius: var(--radius-sm); cursor: pointer; transition: var(--transition);
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        .option-btn.active {
+            background: var(--primary); color: #fff; box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .form-group { margin-bottom: 18px; }
+
+        .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .input-wrapper { position: relative; display: flex; align-items: center; }
+
+        .input-icon { position: absolute; left: 14px; color: var(--text-dim); font-size: 15px; transition: var(--transition); }
+
+        .form-input {
+            width: 100%; padding: 12px 14px 12px 42px;
+            background: rgba(5, 9, 18, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: var(--radius-md); color: var(--text-main); font-size: 14px;
+            outline: none; transition: var(--transition);
+        }
+
+        .form-input:focus {
+            border-color: var(--primary); box-shadow: 0 0 12px var(--primary-glow);
+            background: rgba(10, 18, 34, 0.9);
+        }
+
+        .form-input:focus + .input-icon, .input-wrapper:focus-within .input-icon { color: var(--primary); }
+
+        .btn {
+            width: 100%; padding: 13px; border: none; border-radius: var(--radius-md);
+            font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition);
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            text-transform: uppercase; letter-spacing: 0.8px;
+        }
+
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; box-shadow: 0 4px 20px var(--primary-glow); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 26px rgba(59, 130, 246, 0.6); }
+
+        .btn-secondary { background: rgba(255, 255, 255, 0.05); color: var(--text-main); border: 1px solid rgba(255, 255, 255, 0.12); }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.10); border-color: rgba(255, 255, 255, 0.25); }
+
+        .btn-save { background: linear-gradient(135deg, #0891b2, #0e7490); color: #fff; box-shadow: 0 4px 15px rgba(8, 145, 178, 0.35); }
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(8, 145, 178, 0.55); }
+        .btn-save.unsaved { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); animation: pulse-save-glow 2s infinite; }
+
+        @keyframes pulse-save-glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.8); }
+        }
+
+        .save-indicator-badge {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+            padding: 5px 12px; border-radius: var(--radius-sm); transition: var(--transition);
+        }
+
+        .save-indicator-badge.saved { background: rgba(34, 211, 238, 0.12); border: 1px solid rgba(34, 211, 238, 0.35); color: var(--success); }
+        .save-indicator-badge.unsaved { background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.4); color: var(--warning); }
+        .save-indicator-badge.syncing { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: var(--accent); }
+        .save-indicator-badge.offline { background: rgba(248, 113, 113, 0.12); border: 1px solid rgba(248, 113, 113, 0.35); color: var(--danger); }
+
+        .admin-credentials-badge {
+            margin-top: 20px; padding: 12px;
+            background: rgba(59, 130, 246, 0.06);
+            border: 1px dashed rgba(59, 130, 246, 0.35);
+            border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted); text-align: center;
+        }
+
+        .admin-credentials-badge code { color: var(--accent); font-family: 'Fira Code', monospace; font-weight: 600; background: rgba(0, 0, 0, 0.4); padding: 2px 6px; border-radius: 4px; }
+
+        /* ============ DASHBOARD LAYOUT ============ */
+        #dashboard-container { display: none; flex-direction: column; min-height: 100vh; }
+
+        .navbar {
+            height: 70px; padding: 0 32px; display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--bg-card-border); background: rgba(6, 10, 20, 0.88);
+            backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100;
+        }
+
+        .nav-left { display: flex; align-items: center; gap: 14px; }
+
+        .nav-logo-icon {
+            width: 38px; height: 38px; background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: #fff; box-shadow: 0 0 12px var(--primary-glow);
+        }
+
+        .nav-brand-title { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; }
+
+        .nav-right { display: flex; align-items: center; gap: 20px; }
+
+        .user-badge {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(59, 130, 246, 0.10); border: 1px solid rgba(59, 130, 246, 0.35);
+            padding: 6px 14px 6px 10px; border-radius: 30px;
+        }
+
+        .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: #fff; }
+
+        .logout-btn { background: rgba(255, 255, 255, 0.05); color: var(--text-main); border: 1px solid rgba(255, 255, 255, 0.12); padding: 8px 16px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 600; transition: var(--transition); }
+        .logout-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
+
+        .dashboard-body { display: flex; flex: 1; }
+
+        .sidebar {
+            width: 250px; padding: 24px 16px; border-right: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(6, 10, 20, 0.5); display: flex; flex-direction: column; gap: 8px;
+        }
+
+        .tab-btn {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--radius-md);
+            color: var(--text-muted); font-size: 14px; font-weight: 500; cursor: pointer; transition: var(--transition);
+            border: 1px solid transparent; background: transparent; text-align: left; width: 100%;
+        }
+
+        .tab-btn i { font-size: 16px; width: 20px; text-align: center; }
+        .tab-btn:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.03); }
+
+        .tab-btn.active {
+            color: #fff;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0.05) 100%);
+            border-color: rgba(59, 130, 246, 0.4); border-left: 3px solid var(--primary); font-weight: 600;
+        }
+
+        .main-content { flex: 1; padding: 32px; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .page-header { margin-bottom: 28px; }
+        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+        .page-desc { font-size: 14px; color: var(--text-muted); }
+
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 24px; }
+
+        .card { border-radius: var(--radius-lg); padding: 24px; position: relative; }
+
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+
+        .card-title { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        .card-title i { color: var(--primary); }
+
+        .key-box {
+            background: rgba(4, 8, 16, 0.85); border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: var(--radius-md); padding: 12px 16px; display: flex; align-items: center;
+            justify-content: space-between; margin-top: 10px; gap: 12px;
+        }
+
+        .key-value { font-family: 'Fira Code', monospace; font-size: 14px; color: #7dd3fc; letter-spacing: 0.5px; word-break: break-all; }
+        .key-value.masked { color: var(--text-muted); letter-spacing: 2px; }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-main); width: 36px; height: 36px; border-radius: var(--radius-sm);
+            display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+            transition: var(--transition); flex-shrink: 0;
+        }
+
+        .icon-btn:hover { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 0 10px var(--primary-glow); }
+
+        .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-pill.active { background: rgba(34, 211, 238, 0.10); color: var(--success); border: 1px solid rgba(34, 211, 238, 0.35); }
+        .status-pill.revoked { background: rgba(248, 113, 113, 0.10); color: var(--danger); border: 1px solid rgba(248, 113, 113, 0.35); }
+        .status-pill.expired { background: rgba(251, 191, 36, 0.10); color: var(--warning); border: 1px solid rgba(251, 191, 36, 0.35); }
+
+        .table-responsive { width: 100%; overflow-x: auto; border-radius: var(--radius-lg); }
+
+        .data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+
+        .data-table th { background: rgba(9, 16, 30, 0.95); padding: 16px 20px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.10); text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+
+        .data-table td { padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); background: rgba(8, 14, 26, 0.55); vertical-align: middle; }
+
+        .data-table tr:hover td { background: rgba(59, 130, 246, 0.06); }
+
+        .code-container { position: relative; background: #070b15; border: 1px solid rgba(255, 255, 255, 0.10); border-radius: var(--radius-md); overflow: hidden; margin-top: 16px; }
+
+        .code-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: rgba(10, 18, 34, 0.9); border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 12px; color: var(--text-muted); font-family: 'Fira Code', monospace; }
+
+        pre { padding: 20px; overflow-x: auto; font-family: 'Fira Code', monospace; font-size: 13px; line-height: 1.6; color: #dbe4f3; }
+
+        .code-keyword { color: #60a5fa; font-weight: 600; }
+        .code-type { color: #93c5fd; }
+        .code-string { color: #a5f3fc; }
+        .code-comment { color: #64748b; font-style: italic; }
+        .code-func { color: #7dd3fc; }
+
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+
+        .toast {
+            background: var(--bg-surface); border: 1px solid var(--primary); color: var(--text-main);
+            padding: 14px 20px; border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            display: flex; align-items: center; gap: 12px; font-size: 14px;
+            animation: slideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); z-index: 200;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+
+        .modal-card { width: 100%; max-width: 500px; border-radius: var(--radius-lg); padding: 32px; }
+
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-title { font-size: 18px; font-weight: 700; }
+
+        .close-modal { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
+        .close-modal:hover { color: #fff; }
+
+        @media (max-width: 768px) {
+            .dashboard-body { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.06); flex-direction: row; overflow-x: auto; padding: 12px; }
+            .tab-btn { white-space: nowrap; }
+            .main-content { padding: 20px 16px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========================================== -->
+    <!-- AUTH SELECTION & LOGIN (ADMIN / USER CHECK) -->
+    <!-- ========================================== -->
+    <div id="auth-container">
+        <div class="auth-card glass-panel">
+            <div class="brand-header">
+                <div class="brand-logo"><i class="fa-solid fa-shield-halved"></i></div>
+                <h1 class="brand-title">AZUREGUARD AUTH</h1>
+                <p class="brand-subtitle">System UUID &amp; License Management Platform · Cloudflare Pages Ready</p>
+            </div>
+
+            <div class="option-toggle-container">
+                <button type="button" class="option-btn active" id="opt-admin-btn" onclick="selectOption('admin')">
+                    <i class="fa-solid fa-user-shield"></i> Admin Portal
+                </button>
+                <button type="button" class="option-btn" id="opt-user-btn" onclick="selectOption('user')">
+                    <i class="fa-solid fa-laptop-code"></i> System UUID Check
+                </button>
+            </div>
+
+            <!-- ADMIN LOGIN -->
+            <form id="admin-login-form" onsubmit="handleAdminLogin(event)">
+                <div class="form-group">
+                    <label class="form-label">Admin Username</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="admin-user" class="form-input" placeholder="re4per" required autocomplete="username">
+                        <i class="fa-solid fa-user-gear input-icon"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Admin Password</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="admin-pass" class="form-input" placeholder="••••••••••••" required autocomplete="current-password">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Login as Admin
+                </button>
+                <div class="admin-credentials-badge">
+                    Default Credentials: <code>re4per</code> / <code>re4per123</code>
+                </div>
+            </form>
+
+            <!-- USER UUID CHECK -->
+            <form id="user-check-form" style="display: none;" onsubmit="handleUserUuidCheck(event)">
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label class="form-label" style="margin-bottom: 0;">Machine System UUID</label>
+                        <button type="button" class="btn btn-secondary" onclick="fillUserCheckMyUuid()" style="font-size: 11px; padding: 4px 8px; height: auto; width: auto;">
+                            <i class="fa-solid fa-laptop"></i> Auto-Fill
+                        </button>
+                    </div>
+                    <div class="input-wrapper">
+                        <input type="text" id="user-uuid-input" class="form-input" placeholder="e.g. 4C4C4544-0059-3510-804D-B6C04F5A4833" required style="font-family:'Fira Code'; font-size:13px;">
+                        <i class="fa-solid fa-fingerprint input-icon"></i>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px;">
+                    <i class="fa-solid fa-shield-halved"></i> Check Authorization Status
+                </button>
+                <div id="user-check-result" style="margin-top: 14px; display: none;"></div>
+                <div style="margin-top: 16px; text-align: center; font-size: 12px; color: var(--text-muted);">
+                    Instantly verifies if a machine's Hardware System UUID is authorized.
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- DASHBOARD VIEW (ADMIN FULL CONTROL)        -->
+    <!-- ========================================== -->
+    <div id="dashboard-container">
+        <nav class="navbar">
+            <div class="nav-left">
+                <div class="nav-logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="nav-brand-title">AZUREGUARD AUTH</div>
+            </div>
+            <div class="nav-right">
+                <div class="user-badge">
+                    <div class="user-avatar"><i class="fa-solid fa-crown"></i></div>
+                    <span style="font-size: 13px; font-weight: 700; color: #fff;">ADMIN (re4per)</span>
+                </div>
+                <button class="logout-btn" onclick="logoutAdmin()"><i class="fa-solid fa-power-off"></i> Logout</button>
+            </div>
+        </nav>
+
+        <div class="dashboard-body">
+            <aside class="sidebar">
+                <button class="tab-btn active" onclick="switchTab('all-keys-tab', this)">
+                    <i class="fa-solid fa-users-gear"></i> Authorized Systems
+                </button>
+                <button class="tab-btn" onclick="switchTab('owner-credentials-tab', this)">
+                    <i class="fa-solid fa-shield-halved"></i> Owner Credentials
+                </button>
+                <button class="tab-btn" onclick="switchTab('csharp-tab', this)">
+                    <i class="fa-solid fa-code"></i> C++ &amp; C# Integration
+                </button>
+                <button class="tab-btn" onclick="switchTab('api-tester-tab', this)">
+                    <i class="fa-solid fa-vial"></i> Live UUID Tester
+                </button>
+            </aside>
+
+            <main class="main-content">
+
+                <!-- TAB 1: AUTHORIZED SYSTEMS -->
+                <div id="all-keys-tab" class="tab-content active">
+                    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap;">
+                                <h2 class="page-title" style="margin-bottom: 0;">All Registered System UUIDs &amp; Users</h2>
+                                <span id="save-status-badge" class="save-indicator-badge syncing">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Connecting...
+                                </span>
+                            </div>
+                            <p class="page-desc">Cloud-synced control panel. Every change is saved to Cloudflare KV and visible from any device.</p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <button class="btn btn-save" id="btn-save-db" onclick="forceSync()" style="width: auto; padding: 10px 18px;" title="Force immediate sync to Cloudflare KV">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Force Sync
+                            </button>
+                            <button class="btn btn-secondary" onclick="exportDatabaseFile()" style="width: auto; padding: 10px 14px;" title="Download uuids.json backup">
+                                <i class="fa-solid fa-download"></i> Backup JSON
+                            </button>
+                            <label class="btn btn-secondary" style="width: auto; padding: 10px 14px; cursor: pointer; margin: 0;" title="Restore or import users from uuids.json">
+                                <i class="fa-solid fa-upload"></i> Restore JSON
+                                <input type="file" id="import-json-input" accept=".json" style="display:none;" onchange="importDatabaseFile(event)">
+                            </label>
+                            <button class="btn btn-primary" onclick="openRegisterUuidModal()" style="width: auto; padding: 10px 20px;">
+                                <i class="fa-solid fa-plus"></i> Register New System UUID
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="grid-3">
+                        <div class="card glass-panel" style="text-align: center;">
+                            <i class="fa-solid fa-hard-drive" style="font-size: 26px; color: var(--accent); margin-bottom: 6px;"></i>
+                            <h3 style="font-size: 24px; font-weight: 700;" id="stat-total-uuids">0</h3>
+                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Total Registered UUIDs</p>
+                        </div>
+                        <div class="card glass-panel" style="text-align: center;">
+                            <i class="fa-solid fa-circle-check" style="font-size: 26px; color: var(--success); margin-bottom: 6px;"></i>
+                            <h3 style="font-size: 24px; font-weight: 700;" id="stat-authorized-uuids">0</h3>
+                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Authorized Systems</p>
+                        </div>
+                        <div class="card glass-panel" style="text-align: center;">
+                            <i class="fa-solid fa-ban" style="font-size: 26px; color: var(--danger); margin-bottom: 6px;"></i>
+                            <h3 style="font-size: 24px; font-weight: 700;" id="stat-revoked-uuids">0</h3>
+                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Revoked / Failed Systems</p>
+                        </div>
+                    </div>
+
+                    <!-- Keys Table -->
+                    <div class="glass-panel table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Authorized User System UUID</th>
+                                    <th>Assigned User / Device</th>
+                                    <th>Access Status</th>
+                                    <th>Key Duration / Expiry</th>
+                                    <th>Date Added</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-uuids-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB 2: OWNER CREDENTIALS -->
+                <div id="owner-credentials-tab" class="tab-content">
+                    <div class="page-header">
+                        <h2 class="page-title">Global Master Owner Credentials</h2>
+                        <p class="page-desc">Master Owner UUID and Secret Key used across all C# / C++ desktop client requests. Stored in Cloudflare KV.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card glass-panel">
+                            <div class="card-header">
+                                <span class="card-title"><i class="fa-solid fa-fingerprint"></i> Master Owner ID (UUID v4)</span>
+                                <span class="status-pill active"><i class="fa-solid fa-shield-halved"></i> Active</span>
+                            </div>
+                            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Global Owner ID required in your C# / C++ desktop app config.</p>
+                            <div class="key-box">
+                                <span class="key-value" id="master-owner-id">Loading...</span>
+                                <button class="icon-btn" onclick="copyText(document.getElementById('master-owner-id').innerText, 'Owner ID')"><i class="fa-solid fa-copy"></i></button>
+                            </div>
+                        </div>
+                        <div class="card glass-panel">
+                            <div class="card-header">
+                                <span class="card-title"><i class="fa-solid fa-key"></i> Master Secret Key</span>
+                                <button class="icon-btn" onclick="regenerateMasterSecret()" style="width:auto; padding:0 10px; font-size:12px; height:28px;">
+                                    <i class="fa-solid fa-rotate"></i> Reset
+                                </button>
+                            </div>
+                            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Private secret key for payload hashing between EXE/DLL and server.</p>
+                            <div class="key-box">
+                                <span class="key-value masked" id="master-secret-display">••••••••••••••••••••••••••••••••</span>
+                                <div style="display:flex; gap:6px;">
+                                    <button class="icon-btn" onclick="toggleMasterSecretVisibility()"><i class="fa-solid fa-eye" id="master-secret-eye"></i></button>
+                                    <button class="icon-btn" onclick="copyMasterSecret()"><i class="fa-solid fa-copy"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: C# / C++ INTEGRATION -->
+                <div id="csharp-tab" class="tab-content">
+                    <div class="page-header">
+                        <h2 class="page-title">C++ &amp; C# .NET Integration (EXE / DLL)</h2>
+                        <p class="page-desc">Checks local system UUID on first run. If matched with registered UUIDs, execution proceeds; otherwise displays <b>authorization failed</b>.</p>
+                    </div>
+                    <div class="card glass-panel">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span style="font-weight: 600; font-size: 14px; color: var(--accent);">
+                                <i class="fa-brands fa-microsoft"></i> AuthClient.h / AuthClient.cs (.NET 4.7.2 EXE &amp; DLL)
+                            </span>
+                            <button class="btn btn-secondary" onclick="copyCSharpCode()" style="width: auto; padding: 6px 14px; font-size: 12px;">
+                                <i class="fa-solid fa-copy"></i> Copy Code
+                            </button>
+                        </div>
+                        <div class="code-container">
+                            <div class="code-header">
+                                <span>C++ (AuthClient.h) &amp; C# (AuthClient.cs) | Ultra-Simple 1-Line Verify</span>
+                                <span>Cloudflare Pages /verify Endpoint</span>
+                            </div>
+                            <pre><code id="csharp-code-block">
+// =========================================================================
+// OPTION 1: C++ EXE or DLL (AuthClient.h)
+// =========================================================================
+#include "AuthClient.h"
+
+int main()
+{
+    // Auto-detects local System UUID & validates against Cloudflare!
+    if (!SimpleAuth::Verify())
+    {
+        return 0; // Terminate app if machine UUID is not authorized
+    }
+
+    // [AUTHORIZED] Your main software executes here!
+    return 0;
+}
+
+// =========================================================================
+// OPTION 2: C# EXE or DLL (AuthClient.cs)
+// =========================================================================
+using SimpleAuth;
+
+class Program
+{
+    static void Main()
+    {
+        // Auto-detects local System UUID & validates against Cloudflare!
+        if (!Auth.Verify())
+        {
+            return; // Terminate app if machine UUID is not authorized
+        }
+
+        // [AUTHORIZED] Your main software executes here!
+    }
+}
+                            </code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: LIVE UUID TESTER -->
+                <div id="api-tester-tab" class="tab-content">
+                    <div class="page-header">
+                        <h2 class="page-title">Live System UUID Authorization Tester</h2>
+                        <p class="page-desc">Simulate a desktop EXE / DLL client validating its hardware System UUID against the live Cloudflare API.</p>
+                    </div>
+                    <div class="grid-2">
+                        <div class="card glass-panel">
+                            <h3 class="card-title" style="margin-bottom: 16px;"><i class="fa-solid fa-play"></i> Test Client Verification</h3>
+                            <div class="form-group">
+                                <label class="form-label">Pick from Registered Systems</label>
+                                <select id="sim-registered-uuid" class="form-input" onchange="onSimSelectChange()"></select>
+                            </div>
+                            <div class="form-group">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <label class="form-label" style="margin-bottom:0;">System Hardware UUID to Verify</label>
+                                    <button type="button" class="btn btn-secondary" onclick="fillSimWithMyUuid()" style="font-size:11px; padding:4px 8px; height:auto; width:auto;">
+                                        <i class="fa-solid fa-laptop"></i> Auto-Fill
+                                    </button>
+                                </div>
+                                <div class="input-wrapper">
+                                    <input type="text" id="sim-system-uuid" class="form-input" placeholder="e.g. 4C4C4544-0059-3510-804D-B6C04F5A4833" style="font-family:'Fira Code'; font-size:13px;">
+                                    <i class="fa-solid fa-fingerprint input-icon"></i>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="runSimulatedUuidCheck()">
+                                <i class="fa-solid fa-shield-halved"></i> Run Verification Test
+                            </button>
+                        </div>
+                        <div class="card glass-panel">
+                            <h3 class="card-title" style="margin-bottom: 16px;"><i class="fa-solid fa-desktop"></i> Desktop Client Response</h3>
+                            <div id="sim-desktop-output" style="padding: 20px; border-radius: var(--radius-md); background: rgba(4, 8, 16, 0.85); border: 1px solid rgba(255,255,255,0.10); min-height: 180px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                                <i class="fa-solid fa-circle-question" style="font-size: 36px; color: var(--text-dim); margin-bottom: 10px;"></i>
+                                <div style="font-size: 15px; color: var(--text-muted);">Pick an authorized system or enter a System UUID and click Run Verification Test</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL: REGISTER NEW SYSTEM UUID            -->
+    <!-- ========================================== -->
+    <div class="modal-overlay" id="new-uuid-modal">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fa-solid fa-plus-circle" style="color:var(--primary);"></i> Authorize User System UUID</h3>
+                <button class="close-modal" onclick="closeRegisterUuidModal()">&times;</button>
+            </div>
+            <form onsubmit="handleRegisterUuidSubmit(event)">
+                <div class="form-group">
+                    <label class="form-label">User's System UUID</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="modal-system-uuid" class="form-input" placeholder="e.g. 4C4C4544-0059-3510-804D-B6C04F5A4833" required style="font-family:'Fira Code'; font-size:13px;">
+                        <i class="fa-solid fa-fingerprint input-icon"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">User / Device Name</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="modal-app-name" class="form-input" placeholder="e.g. User_1 / Client PC" required>
+                        <i class="fa-solid fa-user input-icon"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Access Duration</label>
+                    <div class="input-wrapper">
+                        <select id="modal-duration-days" class="form-input" style="cursor: pointer; background: var(--bg-surface); color: var(--text-main);">
+                            <option value="1">1 Day</option>
+                            <option value="3">3 Days</option>
+                            <option value="7">7 Days</option>
+                            <option value="15">15 Days</option>
+                            <option value="30" selected>30 Days (1 Month)</option>
+                            <option value="90">90 Days (3 Months)</option>
+                            <option value="365">365 Days (1 Year)</option>
+                            <option value="0">Lifetime (No Expiry)</option>
+                        </select>
+                        <i class="fa-solid fa-clock input-icon"></i>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeRegisterUuidModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Authorize System UUID</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TOAST NOTIFICATIONS                        -->
+    <!-- ========================================== -->
+    <div id="toast-container"></div>
+
+    <script>
+        // ================================================================
+        // AZUREGUARD AUTH - Cloudflare Pages / Workers KV Edition
+        // Data is stored server-side in Cloudflare KV, so the admin can
+        // log in from ANY device / phone / browser and see every UUID.
+        // ================================================================
+        let currentOption = 'admin';
+        let isAdminLoggedIn = false;
+        let registeredUuids = [];
+        let masterOwnerId = 'e4b3c2a1-8765-4321-90ab-cdef12345678';
+        let masterSecretKey = 'bloody_sec_9f8e7d6c5b4a39281706f5e4d3c2b1a';
+        let masterSecretVisible = false;
+        let apiOnline = false;
+
+        // Same-origin on Cloudflare. Falls back to localhost only when the
+        // page is opened directly from disk (for testing with server.py).
+        function getApiBaseUrl() {
+            if (window.location.protocol === 'file:') return 'http://localhost:8080';
+            return '';
+        }
+
+        async function apiFetch(path, options) {
+            const res = await fetch(getApiBaseUrl() + path, {
+                cache: 'no-store',
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...(options && options.headers) }
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        }
+
+        function setSaveStatus(state, label) {
+            const badge = document.getElementById('save-status-badge');
+            const saveBtn = document.getElementById('btn-save-db');
+            if (!badge) return;
+            badge.className = `save-indicator-badge ${state}`;
+            let icon = 'fa-circle-check';
+            if (state === 'unsaved') icon = 'fa-triangle-exclamation';
+            if (state === 'syncing') icon = 'fa-spinner fa-spin';
+            if (state === 'offline') icon = 'fa-cloud-arrow-down';
+            badge.innerHTML = `<i class="fa-solid ${icon}"></i> ${label}`;
+            if (saveBtn && state === 'unsaved') saveBtn.classList.add('unsaved');
+            else if (saveBtn) saveBtn.classList.remove('unsaved');
+        }
+
+        // ---------------- INIT ----------------
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAdminSession();
+            loadKeys();
+            loadMeta();
+            fetchMyDetectedUuid();
+        });
+
+        async function loadKeys() {
+            setSaveStatus('syncing', 'Syncing from Cloudflare...');
+            try {
+                const data = await apiFetch('/api/keys');
+                if (Array.isArray(data)) {
+                    registeredUuids = data;
+                    apiOnline = true;
+                    setSaveStatus('saved', 'Cloud Sync Active');
+                } else {
+                    throw new Error('Bad payload');
+                }
+            } catch (e) {
+                apiOnline = false;
+                setSaveStatus('offline', 'API Offline');
+                showToast('Cannot reach Cloudflare API. Check KV binding.', 'error');
+            }
+            renderUuidsTable();
+        }
+
+        async function loadMeta() {
+            try {
+                const meta = await apiFetch('/api/keys/meta');
+                if (meta && meta.owner_id) masterOwnerId = meta.owner_id;
+                if (meta && meta.secret_key) masterSecretKey = meta.secret_key;
+            } catch (e) {}
+            document.getElementById('master-owner-id').innerText = masterOwnerId;
+            if (masterSecretVisible) document.getElementById('master-secret-display').innerText = masterSecretKey;
+        }
+
+        async function syncKeys(payload) {
+            const data = await apiFetch('/api/keys', {
+                method: 'POST',
+                body: JSON.stringify({ ...payload })
+            });
+            if (data && Array.isArray(data.keys)) registeredUuids = data.keys;
+            return data;
+        }
+
+        async function forceSync() {
+            setSaveStatus('syncing', 'Syncing...');
+            try {
+                await syncKeys({ action: 'save_all', keys: registeredUuids });
+                setSaveStatus('saved', 'Cloud Sync Active');
+                showToast('All UUIDs synced to Cloudflare KV!', 'success');
+            } catch (e) {
+                setSaveStatus('offline', 'API Offline');
+                showToast('Sync failed - API unreachable', 'error');
+            }
+        }
+
+        // ---------------- OPTION TOGGLE ----------------
+        function selectOption(option) {
+            currentOption = option;
+            document.getElementById('opt-admin-btn').classList.remove('active');
+            document.getElementById('opt-user-btn').classList.remove('active');
+            if (option === 'admin') {
+                document.getElementById('opt-admin-btn').classList.add('active');
+                document.getElementById('admin-login-form').style.display = 'block';
+                document.getElementById('user-check-form').style.display = 'none';
+            } else {
+                document.getElementById('opt-user-btn').classList.add('active');
+                document.getElementById('admin-login-form').style.display = 'none';
+                document.getElementById('user-check-form').style.display = 'block';
+            }
+        }
+
+        // ---------------- ADMIN AUTH ----------------
+        function handleAdminLogin(event) {
+            event.preventDefault();
+            const user = document.getElementById('admin-user').value.trim();
+            const pass = document.getElementById('admin-pass').value.trim();
+            if (user === 're4per' && pass === 're4per123') {
+                isAdminLoggedIn = true;
+                localStorage.setItem('azureguard_admin_session', 'true');
+                showToast('Welcome Admin re4per! Full access granted.', 'success');
+                showDashboard();
+                renderUuidsTable();
+            } else {
+                showToast('Invalid Admin credentials! Use re4per / re4per123', 'error');
+            }
+        }
+
+        function checkAdminSession() {
+            if (localStorage.getItem('azureguard_admin_session') === 'true') {
+                isAdminLoggedIn = true;
+                showDashboard();
+                renderUuidsTable();
+            } else {
+                showAuthView();
+            }
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('azureguard_admin_session');
+            isAdminLoggedIn = false;
+            showAuthView();
+            showToast('Logged out from Admin Portal', 'info');
+        }
+
+        function showAuthView() {
+            document.getElementById('auth-container').style.display = 'flex';
+            document.getElementById('dashboard-container').style.display = 'none';
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('dashboard-container').style.display = 'flex';
+        }
+
+        // ---------------- USER UUID CHECK ----------------
+        function fillUserCheckMyUuid() {
+            if (myDetectedSystemUuid) {
+                document.getElementById('user-uuid-input').value = myDetectedSystemUuid;
+                showToast('Auto-filled detected System UUID!', 'info');
+            } else {
+                showToast('System UUID is only readable by the desktop client. Ask the user for their UUID.', 'info');
+            }
+        }
+
+        async function handleUserUuidCheck(event) {
+            event.preventDefault();
+            const inputUuid = document.getElementById('user-uuid-input').value.trim().toUpperCase();
+            const resultBox = document.getElementById('user-check-result');
+            if (!inputUuid) { showToast('Please enter a System UUID', 'error'); return; }
+
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Checking authorization...</div>';
+
+            try {
+                const data = await apiFetch(`/verify?owner_id=${encodeURIComponent(masterOwnerId)}&secret_key=${encodeURIComponent(masterSecretKey)}&system_uuid=${encodeURIComponent(inputUuid)}`);
+                if (data.status === 1) {
+                    resultBox.innerHTML = `
+                        <div style="background:rgba(34,211,238,0.12); border:1px solid rgba(34,211,238,0.35); border-radius:var(--radius-md); padding:14px; text-align:center;">
+                            <i class="fa-solid fa-circle-check" style="color:var(--success); font-size:26px; margin-bottom:6px;"></i>
+                            <div style="color:var(--success); font-weight:700; font-size:15px;">SYSTEM AUTHORIZED</div>
+                            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Device / User: <b>${data.user || 'Client'}</b></div>
+                            <div style="font-size:12px; color:var(--accent); margin-top:2px;">Expiration: <b>${data.expires || 'Lifetime'}</b></div>
+                        </div>`;
+                    showToast('System is Authorized!', 'success');
+                } else {
+                    resultBox.innerHTML = `
+                        <div style="background:rgba(248,113,113,0.12); border:1px solid rgba(248,113,113,0.35); border-radius:var(--radius-md); padding:14px; text-align:center;">
+                            <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger); font-size:26px; margin-bottom:6px;"></i>
+                            <div style="color:var(--danger); font-weight:700; font-size:15px;">AUTHORIZATION FAILED</div>
+                            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Reason: <b>${data.message || 'Unauthorized'}</b></div>
+                        </div>`;
+                    showToast('Authorization Failed', 'error');
+                }
+            } catch (e) {
+                resultBox.innerHTML = `
+                    <div style="background:rgba(248,113,113,0.12); border:1px solid rgba(248,113,113,0.35); border-radius:var(--radius-md); padding:14px; text-align:center;">
+                        <i class="fa-solid fa-circle-xmark" style="color:var(--danger); font-size:26px; margin-bottom:6px;"></i>
+                        <div style="color:var(--danger); font-weight:700; font-size:15px;">AUTHORIZATION FAILED</div>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Cannot reach Cloudflare API.</div>
+                    </div>`;
+                showToast('API unreachable', 'error');
+            }
+        }
+
+        // ---------------- DETECTED UUID (local server only) ----------------
+        let myDetectedSystemUuid = null;
+        async function fetchMyDetectedUuid() {
+            try {
+                const data = await apiFetch('/api/my_uuid');
+                if (data && data.system_uuid && data.system_uuid !== 'UNKNOWN') myDetectedSystemUuid = data.system_uuid;
+            } catch (e) {}
+        }
+
+        function fillSimWithMyUuid() {
+            if (myDetectedSystemUuid) {
+                document.getElementById('sim-system-uuid').value = myDetectedSystemUuid;
+                showToast('Auto-filled detected System UUID!', 'info');
+            } else {
+                showToast('Only the local server machine auto-detects. Paste a UUID manually.', 'info');
+            }
+        }
+
+        // ---------------- TABLE RENDER & CRUD ----------------
+        function renderUuidsTable() {
+            const tbody = document.getElementById('all-uuids-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            let activeCount = 0;
+            let revokedCount = 0;
+
+            if (registeredUuids.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 45px 20px; color: var(--text-muted);">
+                            <i class="fa-solid fa-folder-open" style="font-size: 38px; margin-bottom: 12px; opacity: 0.35; color: var(--text-dim); display: block;"></i>
+                            <div style="font-size: 15px; font-weight: 600; color: var(--text-main);">No Authorized Systems Registered</div>
+                            <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Click "Register New System UUID" above to authorize a machine.</div>
+                        </td>
+                    </tr>`;
+            } else {
+                registeredUuids.forEach((item, idx) => {
+                    const st = (item.status || 'Active').toLowerCase();
+                    if (st === 'active') activeCount++;
+                    else revokedCount++;
+                    const sysUuid = item.system_uuid || item.uuid || 'UNKNOWN';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="key-value" style="font-size:13px; letter-spacing:0.5px;">${sysUuid}</span>
+                                <button class="icon-btn" onclick="copyText('${sysUuid}', 'System UUID')" style="width:26px; height:26px; font-size:11px;">
+                                    <i class="fa-solid fa-copy"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td style="font-weight:600;">${item.user || 'Client'}</td>
+                        <td><span class="status-pill ${st}"><i class="fa-solid fa-circle" style="font-size:8px;"></i> ${item.status || 'Active'}</span></td>
+                        <td>
+                            <div style="font-size:12px; color:var(--text-main); font-weight:500;">
+                                <i class="fa-solid fa-clock" style="color:var(--accent); margin-right:4px;"></i>
+                                ${item.expiresFormatted || (item.durationDays ? item.durationDays + ' Days' : 'Lifetime')}
+                            </div>
+                        </td>
+                        <td>${item.createdAt || 'N/A'}</td>
+                        <td>
+                            <div style="display:flex; gap:6px;">
+                                <button class="icon-btn" onclick="toggleUuidStatus(${idx})" title="Toggle Access (Active/Revoke)" style="width:30px; height:30px;">
+                                    <i class="fa-solid ${st === 'active' ? 'fa-ban' : 'fa-check'}" style="color:${st === 'active' ? 'var(--danger)' : 'var(--success)'}"></i>
+                                </button>
+                                <button class="icon-btn" onclick="deleteUuid(${idx})" title="Remove / Delete User Key" style="width:30px; height:30px; border-color: rgba(248,113,113,0.35);">
+                                    <i class="fa-solid fa-trash-can" style="color:var(--danger);"></i>
+                                </button>
+                            </div>
+                        </td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('stat-total-uuids').innerText = registeredUuids.length;
+            document.getElementById('stat-authorized-uuids').innerText = activeCount;
+            document.getElementById('stat-revoked-uuids').innerText = revokedCount;
+            updateSimOptions();
+        }
+
+        async function toggleUuidStatus(idx) {
+            const item = registeredUuids[idx];
+            const target = item.system_uuid || item.uuid;
+            const newStatus = item.status === 'Active' ? 'Revoked' : 'Active';
+            try {
+                await syncKeys({ action: 'toggle', system_uuid: target });
+                item.status = newStatus;
+                renderUuidsTable();
+                showToast(`UUID status updated to ${newStatus}`, 'info');
+            } catch (e) {
+                showToast('Failed to update - API unreachable', 'error');
+            }
+        }
+
+        async function deleteUuid(idx) {
+            const item = registeredUuids[idx];
+            const target = item.system_uuid || item.uuid;
+            if (!confirm(`Permanently remove authorization for "${item.user}" (${target})?`)) return;
+            try {
+                await syncKeys({ action: 'delete', system_uuid: target });
+                registeredUuids.splice(idx, 1);
+                renderUuidsTable();
+                showToast(`System UUID ${target} removed!`, 'success');
+            } catch (e) {
+                showToast('Failed to delete - API unreachable', 'error');
+            }
+        }
+
+        // ---------------- REGISTER UUID MODAL ----------------
+        function openRegisterUuidModal() {
+            document.getElementById('new-uuid-modal').style.display = 'flex';
+        }
+        function closeRegisterUuidModal() {
+            document.getElementById('new-uuid-modal').style.display = 'none';
+        }
+
+        async function handleRegisterUuidSubmit(event) {
+            event.preventDefault();
+            const sysUuid = document.getElementById('modal-system-uuid').value.trim().toUpperCase();
+            const appName = document.getElementById('modal-app-name').value.trim() || 'Client';
+            const durationDays = parseInt(document.getElementById('modal-duration-days').value, 10);
+
+            if (!sysUuid) { showToast('Please enter a valid System UUID', 'error'); return; }
+
+            let expiresFormatted = "Lifetime";
+            let expireTimestamp = 0;
+            if (durationDays > 0) {
+                const expDate = new Date(Date.now() + durationDays * 86400000);
+                expiresFormatted = expDate.toLocaleDateString() + ' ' + expDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                expireTimestamp = Math.floor(expDate.getTime() / 1000);
+            }
+
+            const newObj = {
+                system_uuid: sysUuid,
+                uuid: sysUuid,
+                user: appName,
+                durationDays: durationDays,
+                expireTimestamp: expireTimestamp,
+                expiresFormatted: expiresFormatted,
+                status: 'Active',
+                createdAt: new Date().toLocaleDateString()
+            };
+
+            try {
+                await syncKeys({ action: 'add', system_uuid: sysUuid, user: appName, days: durationDays });
+                const existingIdx = registeredUuids.findIndex(x => (x.system_uuid || x.uuid || '').toUpperCase() === sysUuid);
+                if (existingIdx !== -1) registeredUuids[existingIdx] = newObj;
+                else registeredUuids.unshift(newObj);
+                renderUuidsTable();
+                closeRegisterUuidModal();
+                document.getElementById('modal-system-uuid').value = '';
+                document.getElementById('modal-app-name').value = '';
+                showToast(`Authorized & Cloud-Saved ${appName}!`, 'success');
+            } catch (e) {
+                showToast('Failed to save - API unreachable', 'error');
+            }
+        }
+
+        // ---------------- BACKUP / RESTORE ----------------
+        function exportDatabaseFile() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(registeredUuids, null, 2));
+            const a = document.createElement('a');
+            a.setAttribute("href", dataStr);
+            a.setAttribute("download", "uuids.json");
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast('Downloaded uuids.json database file!', 'success');
+        }
+
+        function importDatabaseFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (Array.isArray(parsed)) {
+                        registeredUuids = parsed;
+                        renderUuidsTable();
+                        await syncKeys({ action: 'save_all', keys: registeredUuids });
+                        showToast(`Restored & Cloud-Saved ${parsed.length} users successfully!`, 'success');
+                    } else {
+                        showToast('Invalid JSON file format (must be a JSON array)', 'error');
+                    }
+                } catch (err) {
+                    showToast('Failed to parse JSON file', 'error');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // ---------------- MASTER CREDENTIALS ----------------
+        function toggleMasterSecretVisibility() {
+            masterSecretVisible = !masterSecretVisible;
+            const el = document.getElementById('master-secret-display');
+            const icon = document.getElementById('master-secret-eye');
+            if (masterSecretVisible) {
+                el.innerText = masterSecretKey;
+                el.classList.remove('masked');
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                el.innerText = '••••••••••••••••••••••••••••••••';
+                el.classList.add('masked');
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function copyMasterSecret() {
+            navigator.clipboard.writeText(masterSecretKey);
+            showToast('Master Secret Key copied!', 'success');
+        }
+
+        async function regenerateMasterSecret() {
+            if (!confirm('Regenerate Master Secret Key? This will persist to Cloudflare KV and clients must be updated.')) return;
+            try {
+                const data = await syncKeys({ action: 'regenerate_meta' });
+                if (data && data.meta && data.meta.secret_key) masterSecretKey = data.meta.secret_key;
+                if (data && data.meta && data.meta.owner_id) masterOwnerId = data.meta.owner_id;
+                document.getElementById('master-owner-id').innerText = masterOwnerId;
+                if (masterSecretVisible) document.getElementById('master-secret-display').innerText = masterSecretKey;
+                showToast('Master Secret Key regenerated & cloud-saved!', 'success');
+            } catch (e) {
+                showToast('Failed to regenerate - API unreachable', 'error');
+            }
+        }
+
+        // ---------------- LIVE TESTER ----------------
+        function updateSimOptions() {
+            const select = document.getElementById('sim-registered-uuid');
+            if (!select) return;
+            if (registeredUuids.length === 0) {
+                select.innerHTML = '<option value="">-- No registered users yet --</option>';
+                return;
+            }
+            select.innerHTML = '<option value="">-- Choose an authorized system --</option>';
+            registeredUuids.forEach(item => {
+                const opt = document.createElement('option');
+                const u = item.system_uuid || item.uuid;
+                opt.value = u;
+                opt.innerText = `${u} (${item.user} - ${item.status})`;
+                select.appendChild(opt);
+            });
+        }
+
+        function onSimSelectChange() {
+            const val = document.getElementById('sim-registered-uuid').value;
+            if (val) document.getElementById('sim-system-uuid').value = val;
+        }
+
+        async function runSimulatedUuidCheck() {
+            const testUuid = document.getElementById('sim-system-uuid').value.trim().toUpperCase();
+            const outputBox = document.getElementById('sim-desktop-output');
+            if (!testUuid) { showToast('Please enter or select a System UUID to test', 'error'); return; }
+
+            outputBox.innerHTML = '<div style="color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:24px; margin-bottom:8px;"></i><br>Contacting Cloudflare Auth API...</div>';
+
+            try {
+                const data = await apiFetch(`/verify?owner_id=${encodeURIComponent(masterOwnerId)}&secret_key=${encodeURIComponent(masterSecretKey)}&system_uuid=${encodeURIComponent(testUuid)}`);
+                if (data.status === 1) {
+                    outputBox.innerHTML = `
+                        <i class="fa-solid fa-circle-check" style="font-size:42px; color:var(--success); margin-bottom:10px;"></i>
+                        <h4 style="color:var(--success); font-weight:700; font-size:18px;">AUTHORIZATION PASSED</h4>
+                        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">Device / User: <b>${data.user || 'Client'}</b> | Status: <b>Authorized</b></p>
+                        <p style="font-size:12px; color:var(--accent); margin-top:2px;">Expires: <b>${data.expires || 'Lifetime'}</b></p>
+                        <span style="margin-top:12px; font-family:'Fira Code'; font-size:12px; color:#fff; background:rgba(34,211,238,0.15); padding:6px 12px; border-radius:6px; border:1px solid rgba(34,211,238,0.35);">SimpleAuth::Verify() returns true</span>`;
+                    showToast('Live test passed!', 'success');
+                } else {
+                    outputBox.innerHTML = `
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size:42px; color:var(--danger); margin-bottom:10px;"></i>
+                        <h4 style="color:var(--danger); font-weight:700; font-size:18px;">AUTHORIZATION FAILED</h4>
+                        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">Server Reason: <b>${data.message || 'Unauthorized'}</b></p>
+                        <span style="margin-top:12px; font-family:'Fira Code'; font-size:12px; color:var(--danger); background:rgba(248,113,113,0.15); padding:6px 12px; border-radius:6px; border:1px solid rgba(248,113,113,0.35);">MessageBox: "authorization failed" -&gt; Returns 0</span>`;
+                    showToast(`Failed: ${data.message}`, 'error');
+                }
+            } catch (e) {
+                outputBox.innerHTML = `
+                    <i class="fa-solid fa-circle-xmark" style="font-size:42px; color:var(--danger); margin-bottom:10px;"></i>
+                    <h4 style="color:var(--danger); font-weight:700; font-size:18px;">API OFFLINE</h4>
+                    <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">Cannot reach the Cloudflare /verify function</p>`;
+                showToast('Cloudflare API unreachable', 'error');
+            }
+        }
+
+        // ---------------- TAB SWITCHING ----------------
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        // ---------------- HELPERS ----------------
+        function copyText(text, label) {
+            navigator.clipboard.writeText(text);
+            showToast(`${label} copied to clipboard!`, 'success');
+        }
+
+        function copyCSharpCode() {
+            const text = document.getElementById('csharp-code-block').innerText;
+            navigator.clipboard.writeText(text);
+            showToast('C++ / C# EXE-DLL code copied!', 'success');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            let icon = 'fa-circle-info';
+            if (type === 'success') icon = 'fa-circle-check';
+            if (type === 'error') icon = 'fa-triangle-exclamation';
+            toast.innerHTML = `<i class="fa-solid ${icon}" style="color:${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--accent)'}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
